@@ -19,17 +19,21 @@ BLECharacteristic *weatherCharacteristic;
 
 bool deviceConnected = false;
 
-unsigned long lastReceivedTime = 0; 
-const unsigned long timeoutDuration = 10000; 
+unsigned long lastReceivedTime = 0;
+const unsigned long timeoutDuration = 10000;  // 10 seconds timeout duration
+
+// Sample SOS alerts (This can be updated dynamically based on real conditions)
+String sosAlerts = "[{\"id\":\"004-0000\",\"l\":\"7.01713-79.96301\",\"s\":1},"
+                   "{\"id\":\"004-0000\",\"l\":\"7.01714-79.96302\",\"s\":1}]";
 
 // Callbacks for BLE server
 class MyServerCallbacks : public BLEServerCallbacks {
-  void onConnect(BLEServer* pServer) override {
+  void onConnect(BLEServer *pServer) override {
     deviceConnected = true;
     Serial.println("Client connected");
   }
 
-  void onDisconnect(BLEServer* pServer) override {
+  void onDisconnect(BLEServer *pServer) override {
     deviceConnected = false;
     Serial.println("Client disconnected");
     BLEDevice::startAdvertising();
@@ -39,11 +43,11 @@ class MyServerCallbacks : public BLEServerCallbacks {
 // Callbacks for GPS characteristic
 class GPSCharacteristicCallback : public BLECharacteristicCallbacks {
   void onWrite(BLECharacteristic *pCharacteristic) override {
-    String value = pCharacteristic->getValue(); 
+    String value = pCharacteristic->getValue();
     if (value.length() > 0) {
-      lastReceivedTime = millis(); 
+      lastReceivedTime = millis();
       Serial.print("GPS Data received: ");
-      Serial.println(value); 
+      Serial.println(value);
       pCharacteristic->setValue("");
     }
   }
@@ -52,10 +56,10 @@ class GPSCharacteristicCallback : public BLECharacteristicCallbacks {
 // Callbacks for SOS characteristic
 class SOSCharacteristicCallback : public BLECharacteristicCallbacks {
   void onWrite(BLECharacteristic *pCharacteristic) override {
-    String value = pCharacteristic->getValue();  
+    String value = pCharacteristic->getValue();
     if (value.length() > 0) {
       Serial.print("SOS Alert received from Mobile App: ");
-      Serial.println(value);  
+      Serial.println(value);
     }
   }
 };
@@ -63,10 +67,10 @@ class SOSCharacteristicCallback : public BLECharacteristicCallbacks {
 // Callbacks for Chat characteristic
 class ChatCharacteristicCallback : public BLECharacteristicCallbacks {
   void onWrite(BLECharacteristic *pCharacteristic) override {
-    String value = pCharacteristic->getValue();  
+    String value = pCharacteristic->getValue();
     if (value.length() > 0) {
       Serial.print("Chat Message received from Mobile App: ");
-      Serial.println(value); 
+      Serial.println(value);
     }
   }
 };
@@ -74,10 +78,10 @@ class ChatCharacteristicCallback : public BLECharacteristicCallbacks {
 // Callbacks for Weather characteristic
 class WeatherCharacteristicCallback : public BLECharacteristicCallbacks {
   void onWrite(BLECharacteristic *pCharacteristic) override {
-    String value = pCharacteristic->getValue();  
+    String value = pCharacteristic->getValue();
     if (value.length() > 0) {
       Serial.print("Weather Data received from Mobile App: ");
-      Serial.println(value); 
+      Serial.println(value);
     }
   }
 };
@@ -96,37 +100,28 @@ void setup() {
   // GPS Characteristic
   gpsCharacteristic = pService->createCharacteristic(
     GPS_CHARACTERISTIC_UUID,
-    BLECharacteristic::PROPERTY_READ |
-    BLECharacteristic::PROPERTY_WRITE |
-    BLECharacteristic::PROPERTY_NOTIFY
-  );
+    BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_WRITE | BLECharacteristic::PROPERTY_NOTIFY);
   gpsCharacteristic->addDescriptor(new BLE2902());
   gpsCharacteristic->setCallbacks(new GPSCharacteristicCallback());
 
   // SOS Characteristic
   sosCharacteristic = pService->createCharacteristic(
     SOS_CHARACTERISTIC_UUID,
-    BLECharacteristic::PROPERTY_WRITE |
-    BLECharacteristic::PROPERTY_NOTIFY
-  );
+    BLECharacteristic::PROPERTY_WRITE | BLECharacteristic::PROPERTY_NOTIFY);
   sosCharacteristic->addDescriptor(new BLE2902());
   sosCharacteristic->setCallbacks(new SOSCharacteristicCallback());
 
   // Chat Characteristic
   chatCharacteristic = pService->createCharacteristic(
     CHAT_CHARACTERISTIC_UUID,
-    BLECharacteristic::PROPERTY_WRITE |
-    BLECharacteristic::PROPERTY_NOTIFY
-  );
+    BLECharacteristic::PROPERTY_WRITE | BLECharacteristic::PROPERTY_NOTIFY);
   chatCharacteristic->addDescriptor(new BLE2902());
   chatCharacteristic->setCallbacks(new ChatCharacteristicCallback());
 
   // Weather Characteristic
   weatherCharacteristic = pService->createCharacteristic(
     WEATHER_CHARACTERISTIC_UUID,
-    BLECharacteristic::PROPERTY_READ |
-    BLECharacteristic::PROPERTY_NOTIFY
-  );
+    BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY);
   weatherCharacteristic->addDescriptor(new BLE2902());
   weatherCharacteristic->setCallbacks(new WeatherCharacteristicCallback());
 
@@ -141,10 +136,16 @@ void setup() {
 
 void loop() {
   if (deviceConnected) {
+    // Send SOS alerts to the mobile app
+    sosCharacteristic->setValue(sosAlerts.c_str());  // Send the JSON SOS alerts
+    sosCharacteristic->notify();                     // Notify the mobile app of the new SOS alerts
+    Serial.println("SOS alerts sent to mobile app.");
+    delay(5000);
+
     // Check if data hasn't been received within the timeout duration
     if (millis() - lastReceivedTime > timeoutDuration) {
       Serial.println("No GPS data received from Mobile App for 10 seconds...");
-      delay(5000); // Avoid spamming the log
+      delay(5000);  // Avoid spamming the log
     }
   } else {
     delay(1000);
