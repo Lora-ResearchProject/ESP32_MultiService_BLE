@@ -23,8 +23,9 @@ unsigned long lastReceivedTime = 0;
 const unsigned long timeoutDuration = 10000;  // 10 seconds timeout duration
 
 // Sample SOS alerts (This can be updated dynamically based on real conditions)
-String sosAlerts = "[{\"id\":\"004-0000\",\"l\":\"7.01713-79.96301\",\"s\":1},"
-                   "{\"id\":\"004-0000\",\"l\":\"7.01714-79.96302\",\"s\":1}]";
+String sosAlerts = "[{\"id\":\"004-0000\",\"l\":\"8.01713-79.96301\",\"s\":1},"
+                    "{\"id\":\"004-0000\",\"l\":\"8.01713-79.96301\",\"s\":1},"
+                    "{\"id\":\"004-0000\",\"l\":\"8.01714-79.96302\",\"s\":1}]";
 
 // Callbacks for BLE server
 class MyServerCallbacks : public BLEServerCallbacks {
@@ -61,6 +62,13 @@ class SOSCharacteristicCallback : public BLECharacteristicCallbacks {
       Serial.print("SOS Alert received from Mobile App: ");
       Serial.println(value);
     }
+  }
+
+  void onRead(BLECharacteristic *pCharacteristic) override {
+    Serial.println("Fetch SOS Alerts request received");
+    pCharacteristic->setValue(sosAlerts.c_str());   // Send the SOS alerts (stored in sosAlerts) back to the client
+    Serial.print("SOS Alerts sent sent to mobile: ");
+    Serial.println(sosAlerts);
   }
 };
 
@@ -107,7 +115,7 @@ void setup() {
   // SOS Characteristic
   sosCharacteristic = pService->createCharacteristic(
     SOS_CHARACTERISTIC_UUID,
-    BLECharacteristic::PROPERTY_WRITE | BLECharacteristic::PROPERTY_NOTIFY);
+    BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_WRITE | BLECharacteristic::PROPERTY_NOTIFY);
   sosCharacteristic->addDescriptor(new BLE2902());
   sosCharacteristic->setCallbacks(new SOSCharacteristicCallback());
 
@@ -136,12 +144,6 @@ void setup() {
 
 void loop() {
   if (deviceConnected) {
-    // Send SOS alerts to the mobile app
-    sosCharacteristic->setValue(sosAlerts.c_str());  // Send the JSON SOS alerts
-    sosCharacteristic->notify();                     // Notify the mobile app of the new SOS alerts
-    Serial.println("SOS alerts sent to mobile app.");
-    delay(5000);
-
     // Check if data hasn't been received within the timeout duration
     if (millis() - lastReceivedTime > timeoutDuration) {
       Serial.println("No GPS data received from Mobile App for 10 seconds...");
