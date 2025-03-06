@@ -3,7 +3,6 @@
 #include <BLEUtils.h>
 #include <BLE2902.h>
 
-// UUIDs for the service and characteristics
 #define SERVICE_UUID "12345678-1234-1234-1234-123456789abc"
 
 #define GPS_CHARACTERISTIC_UUID "abcd1234-5678-1234-5678-abcdef123456"
@@ -11,7 +10,6 @@
 #define CHAT_CHARACTERISTIC_UUID "abcd1234-5678-1234-5678-abcdef987654"
 #define WEATHER_CHARACTERISTIC_UUID "abcd1234-5678-1234-5678-abcdef111213"
 
-// Global variables
 BLECharacteristic *gpsCharacteristic;
 BLECharacteristic *sosCharacteristic;
 BLECharacteristic *chatCharacteristic;
@@ -20,7 +18,7 @@ BLECharacteristic *weatherCharacteristic;
 bool deviceConnected = false;
 
 unsigned long lastReceivedTime = 0;
-const unsigned long timeoutDuration = 10000;  // 10 seconds timeout duration
+const unsigned long timeoutDuration = 10000;
 
 // Sample SOS alerts (This can be updated dynamically based on real conditions)
 String sosAlerts = "[{\"id\":\"004-0000\",\"l\":\"8.01713-79.96301\",\"s\":1},"
@@ -43,13 +41,21 @@ class MyServerCallbacks : public BLEServerCallbacks {
 
 // Callbacks for GPS characteristic
 class GPSCharacteristicCallback : public BLECharacteristicCallbacks {
-  void onWrite(BLECharacteristic *pCharacteristic) override {
-    String value = pCharacteristic->getValue();
-    if (value.length() > 0) {
+  String dataBuffer = "";
+
+   void onWrite(BLECharacteristic *pCharacteristic) override {
+    String receivedData = pCharacteristic->getValue();
+
+    if (receivedData.length() > 0) {
+      dataBuffer += receivedData;
       lastReceivedTime = millis();
-      Serial.print("GPS Data received: ");
-      Serial.println(value);
-      pCharacteristic->setValue("");
+
+      if (receivedData.endsWith("}")) {
+        Serial.print("✅ GPS Data received: ");
+        Serial.println(dataBuffer);
+
+        dataBuffer = "";
+      }
     }
   }
 };
@@ -59,15 +65,15 @@ class SOSCharacteristicCallback : public BLECharacteristicCallbacks {
   void onWrite(BLECharacteristic *pCharacteristic) override {
     String value = pCharacteristic->getValue();
     if (value.length() > 0) {
-      Serial.print("SOS Alert received from Mobile App: ");
+      Serial.print("🚨 SOS Received: ");
       Serial.println(value);
     }
   }
 
   void onRead(BLECharacteristic *pCharacteristic) override {
-    Serial.println("Fetch SOS Alerts request received");
-    pCharacteristic->setValue(sosAlerts.c_str());   // Send the SOS alerts (stored in sosAlerts) back to the client
-    Serial.print("SOS Alerts sent sent to mobile: ");
+    Serial.println("📩 Fetch SOS Alerts request received");
+    pCharacteristic->setValue(sosAlerts.c_str()); 
+    Serial.print("📤 SOS Alerts sent sent to mobile: ");
     Serial.println(sosAlerts);
   }
 };
@@ -135,6 +141,9 @@ void setup() {
 
   // Start service and advertising
   pService->start();
+
+  BLEDevice::setMTU(250);
+
   BLEAdvertising *pAdvertising = BLEDevice::getAdvertising();
   pAdvertising->addServiceUUID(SERVICE_UUID);
   pAdvertising->start();
