@@ -25,6 +25,10 @@ String sosAlerts = "[{\"id\":\"004-0000\",\"l\":\"8.01713-79.96301\",\"s\":1},"
                     "{\"id\":\"004-0000\",\"l\":\"8.01713-79.96301\",\"s\":1},"
                     "{\"id\":\"004-0000\",\"l\":\"8.01714-79.96302\",\"s\":1}]";
 
+
+// Simulated weather percentage for testing (Change to dynamic later)
+String mockWeatherResponse = "{\"id\":\"123|0000\", \"w\":90}";
+
 // Callbacks for BLE server
 class MyServerCallbacks : public BLEServerCallbacks {
   void onConnect(BLEServer *pServer) override {
@@ -93,9 +97,16 @@ class ChatCharacteristicCallback : public BLECharacteristicCallbacks {
 class WeatherCharacteristicCallback : public BLECharacteristicCallbacks {
   void onWrite(BLECharacteristic *pCharacteristic) override {
     String value = pCharacteristic->getValue();
+    
     if (value.length() > 0) {
-      Serial.print("Weather Data received from Mobile App: ");
+      Serial.print("🌦️ Weather Request received: ");
       Serial.println(value);
+      
+      // Simulate a weather response with the stored percentage
+      weatherCharacteristic->setValue(mockWeatherResponse.c_str());
+      
+      Serial.print("📡 Weather Response Sent: ");
+      Serial.println(mockWeatherResponse);
     }
   }
 };
@@ -128,14 +139,14 @@ void setup() {
   // Chat Characteristic
   chatCharacteristic = pService->createCharacteristic(
     CHAT_CHARACTERISTIC_UUID,
-    BLECharacteristic::PROPERTY_WRITE | BLECharacteristic::PROPERTY_NOTIFY);
+    BLECharacteristic::PROPERTY_WRITE | BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY);
   chatCharacteristic->addDescriptor(new BLE2902());
   chatCharacteristic->setCallbacks(new ChatCharacteristicCallback());
 
   // Weather Characteristic
   weatherCharacteristic = pService->createCharacteristic(
     WEATHER_CHARACTERISTIC_UUID,
-    BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY);
+    BLECharacteristic::PROPERTY_WRITE | BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY);
   weatherCharacteristic->addDescriptor(new BLE2902());
   weatherCharacteristic->setCallbacks(new WeatherCharacteristicCallback());
 
@@ -148,14 +159,14 @@ void setup() {
   pAdvertising->addServiceUUID(SERVICE_UUID);
   pAdvertising->start();
 
-  Serial.println("Waiting for a client connection...");
+  Serial.println("🌐 Waiting for a client connection...");
 }
 
 void loop() {
   if (deviceConnected) {
     // Check if data hasn't been received within the timeout duration
     if (millis() - lastReceivedTime > timeoutDuration) {
-      Serial.println("No GPS data received from Mobile App for 10 seconds...");
+      Serial.println("⚠️ No GPS data received from Mobile App for 10 seconds...");
       delay(5000);  // Avoid spamming the log
     }
   } else {
