@@ -9,11 +9,13 @@
 #define SOS_CHARACTERISTIC_UUID "abcd1234-5678-1234-5678-abcdef654321"
 #define CHAT_CHARACTERISTIC_UUID "abcd1234-5678-1234-5678-abcdef987654"
 #define WEATHER_CHARACTERISTIC_UUID "abcd1234-5678-1234-5678-abcdef111213"
+#define HOTSPOT_CHARACTERISTIC_UUID "abcd1234-5678-1234-5678-abcdef111214"
 
 BLECharacteristic *gpsCharacteristic;
 BLECharacteristic *sosCharacteristic;
 BLECharacteristic *chatCharacteristic;
 BLECharacteristic *weatherCharacteristic;
+BLECharacteristic *hotspotCharacteristic;
 
 bool deviceConnected = false;
 
@@ -27,7 +29,12 @@ String sosAlerts = "[{\"id\":\"004-0000\",\"l\":\"8.01713-79.96301\",\"s\":1},"
 
 
 // Simulated weather percentage for testing (Change to dynamic later)
-String mockWeatherResponse = "{\"id\":\"123|0000\", \"w\":90}";
+String mockWeatherResponse = "{\"id\":\"005|Uf6rVNA\", \"w\":90}";
+
+// Sample hotspot response
+String hotspotData = "[{\"hotspotId\":11,\"latitude\":-33.9189,\"longitude\":151.2353},"
+                         "{\"hotspotId\":10,\"latitude\":11.667,\"longitude\":92.7358},"
+                         "{\"hotspotId\":9,\"latitude\":43.0642,\"longitude\":141.3469}]";
 
 // Callbacks for BLE server
 class MyServerCallbacks : public BLEServerCallbacks {
@@ -111,6 +118,17 @@ class WeatherCharacteristicCallback : public BLECharacteristicCallbacks {
   }
 };
 
+// Callbacks for hotspot characteristic
+class HotspotCharacteristicCallback : public BLECharacteristicCallbacks {
+  void onRead(BLECharacteristic *pCharacteristic) override {
+    Serial.println("📩 Fetch Hotspot Data request received");
+
+    pCharacteristic->setValue(hotspotData.c_str());
+    Serial.println("📡 Hotspot Data Sent Successfully!");
+  }
+};
+
+
 void setup() {
   Serial.begin(115200);
 
@@ -150,6 +168,13 @@ void setup() {
   weatherCharacteristic->addDescriptor(new BLE2902());
   weatherCharacteristic->setCallbacks(new WeatherCharacteristicCallback());
 
+  // Hotspot Characteristic (NEW)
+  hotspotCharacteristic = pService->createCharacteristic(
+    HOTSPOT_CHARACTERISTIC_UUID,
+    BLECharacteristic::PROPERTY_WRITE | BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY);
+  hotspotCharacteristic->addDescriptor(new BLE2902());
+  hotspotCharacteristic->setCallbacks(new HotspotCharacteristicCallback());
+  
   // Start service and advertising
   pService->start();
 
