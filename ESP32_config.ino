@@ -21,6 +21,8 @@ bool deviceConnected = false;
 
 unsigned long lastReceivedTime = 0;
 const unsigned long timeoutDuration = 10000;
+unsigned long lastMessageTime = 0;
+const unsigned long messageInterval = 10000;
 
 // Sample SOS alerts (This can be updated dynamically based on real conditions)
 String sosAlerts = "[{\"id\":\"004-0000\",\"l\":\"8.01713-79.96301\",\"s\":1},"
@@ -35,6 +37,11 @@ String mockWeatherResponse = "{\"id\":\"005|Uf6rVNA\", \"w\":90}";
 String hotspotData = "[{\"hotspotId\":11,\"latitude\":-33.9189,\"longitude\":151.2353},"
                          "{\"hotspotId\":10,\"latitude\":11.667,\"longitude\":92.7358},"
                          "{\"hotspotId\":9,\"latitude\":43.0642,\"longitude\":141.3469}]";
+
+// List of simulated chat messages
+String mockChatMessage = "{\"id\":\"005|UfS1SHv\",\"m\":7}";
+
+// int currentMessageIndex = 0; 
 
 // Callbacks for BLE server
 class MyServerCallbacks : public BLEServerCallbacks {
@@ -93,8 +100,9 @@ class SOSCharacteristicCallback : public BLECharacteristicCallbacks {
 class ChatCharacteristicCallback : public BLECharacteristicCallbacks {
   void onWrite(BLECharacteristic *pCharacteristic) override {
     String value = pCharacteristic->getValue();
+    
     if (value.length() > 0) {
-      Serial.print("Chat Message received from Mobile App: ");
+      Serial.print("📜 Chat Message received from Mobile App: ");
       Serial.println(value);
     }
   }
@@ -123,6 +131,7 @@ class HotspotCharacteristicCallback : public BLECharacteristicCallbacks {
   void onRead(BLECharacteristic *pCharacteristic) override {
     Serial.println("📩 Fetch Hotspot Data request received");
 
+    // 🔹 Set the BLE characteristic value
     pCharacteristic->setValue(hotspotData.c_str());
     Serial.println("📡 Hotspot Data Sent Successfully!");
   }
@@ -174,7 +183,7 @@ void setup() {
     BLECharacteristic::PROPERTY_WRITE | BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY);
   hotspotCharacteristic->addDescriptor(new BLE2902());
   hotspotCharacteristic->setCallbacks(new HotspotCharacteristicCallback());
-  
+
   // Start service and advertising
   pService->start();
 
@@ -191,8 +200,20 @@ void loop() {
   if (deviceConnected) {
     // Check if data hasn't been received within the timeout duration
     if (millis() - lastReceivedTime > timeoutDuration) {
-      Serial.println("⚠️ No GPS data received from Mobile App for 10 seconds...");
-      delay(5000);  // Avoid spamming the log
+      Serial.println("⚠️ No GPS data received from Mobile App for 10 seconds...");  // Avoid spamming the log
+      delay(5000);
+    } 
+
+    // Check if 10 seconds have passed and send the chat notification
+    if (millis() - lastMessageTime >= messageInterval) {
+      // Send chat notification every 10 seconds
+      Serial.print("📤 Sending chat notification: ");
+      Serial.println(mockChatMessage);
+
+      chatCharacteristic->setValue(mockChatMessage.c_str());
+      chatCharacteristic->notify();
+
+      lastMessageTime = millis();  // Reset the timer after sending the message
     }
   } else {
     delay(1000);
